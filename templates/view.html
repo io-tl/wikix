@@ -1,0 +1,14 @@
+{{define "title"}}{{.Page.title}}{{end}}
+
+{{define "main"}}
+    <div id="markdown-content">
+        <h1></h1>
+        <pre>
+            {{ .Content}}
+        </pre>
+    </div>
+    <div class="position-fixed bottom-0 end-0 d-flex "> <!-- style="width: 50px; height: 20px; background-color: rgba(0,0,0,0.5);"> -->
+        <a href="/edit/{{.Page.Title}}"  class="nav-link px-5 link-warning " ><i class="fs-4 bi bi-pencil-square"></i></a>
+        <a href="/del/{{.Page.Title}}"  class="nav-link px-5 link-danger " onclick='return confirm("sure ?")' ><i class="fs-4 bi bi-trash"></i></a>
+    </div>
+{{end}}

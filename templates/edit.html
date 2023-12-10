@@ -1,0 +1,22 @@
+{{define "title"}}{{.Page.Title}}{{end}}
+
+{{define "main"}}
+    <link rel="stylesheet" href="/css/easymde.min.css"/>
+    <script src="/js/easymde.min.js"></script>
+    <h1 class="display-2"><i class="bi bi-pencil-square"></i> {{.Page.Title}}</h1>
+    <form action="/save/{{.Page.Title}}" method="post">
+    <textarea name="body" id="edit-area">{{.Content}}</textarea>
+    <div class="d-flex justify-content-between">
+        <button type="submit" class="btn btn-outline-success">Save</button>
+        <a href="/del/{{.Page.Title}}" class="btn btn-outline-danger">Delete</a>    
+    </div>
+
+    <script>
+        const easymde = new EasyMDE({
+        autoDownloadFontAwesome: false,
+        spellChecker: false,
+        sideBySideFullscreen: false,
+        element: document.getElementById('edit-area'),
+        });
+    </script>
+{{end}}

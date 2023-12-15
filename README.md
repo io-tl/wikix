@@ -1,6 +1,20 @@
 # wikix
 One file mini wiki with webdav capabalities
 
+# build
+```
+$ go build
+$ ./wikix -h
+Usage of ./wikix:
+  -auth string
+    	user:pass
+  -listen string
+    	listen addr  (default ":8888")
+$ ./wikix -listen 127.0.0.1:8888
+2023/12/15 13:22:38 started on 127.0.0.1:8888
+```
+
+# usage
 ```
 create new page :
 newpage http://127.0.0.1:8888/edit/newpage

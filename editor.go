@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,7 +20,18 @@ type Page struct {
 }
 
 func (p *Page) save() error {
-	filename := config["pages"] + strings.Replace(filepath.Clean(p.Title+".md"), "/", "_", -1)
+	filename := config["pages"] + filepath.Clean(p.Title+".md")
+
+	dir := filepath.Dir(filename)
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			return fmt.Errorf("ERROR creating directory : %v", err)
+		}
+	}
+
 	return os.WriteFile(filename, p.Body, 0600)
 }
 
@@ -28,16 +41,102 @@ type Attachment struct {
 }
 
 func (p *Attachment) save() error {
-	filename := config["files"] + strings.Replace(filepath.Clean(p.Filename), "/", "_", -1)
+	filename := config["files"] + filepath.Clean(p.Filename)
+	dir := filepath.Dir(filename)
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			return fmt.Errorf("ERROR creating directory : %v", err)
+		}
+	}
 	return os.WriteFile(filename, p.Content, 0600)
 }
 
 type TemplateRender struct {
-	Pages       []string
-	Attachments []string
-	Page        *Page
-	Content     string
-	Data        any
+	Page    *Page
+	Content string
+	Sidebar string
+	Data    any
+	Title   string
+}
+
+type BS5TreeE struct {
+	Text     string      `json:"text"`
+	Icon     string      `json:"icon"`
+	Expanded bool        `json:"expanded,omitempty"`
+	Class    string      `json:"class,omitempty"`
+	Href     string      `json:"href,omitempty"`
+	Data     string      `json:"data,omitempty"`
+	ID       string      `json:"id,omitempty"`
+	Nodes    []*BS5TreeE `json:"nodes,omitempty"`
+}
+
+func GenerateSidebarPages(dir string) (*BS5TreeE, error) {
+	node := &BS5TreeE{Text: filepath.Base(dir)}
+	node.Icon = "fa fa-folder"
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			childNode, err := GenerateSidebarPages(filepath.Join(dir, file.Name()))
+			if err != nil {
+				return nil, err
+			}
+			node.Nodes = append(node.Nodes, childNode)
+		} else {
+
+			ext := filepath.Ext(file.Name())
+			if ext != ".md" {
+				continue
+			}
+
+			filewoext := file.Name()[0 : len(file.Name())-len(ext)]
+			n := &BS5TreeE{Text: filewoext, Icon: "fa fa-file-text-o"}
+			n.Href = "/" + strings.Replace(filepath.Join(dir, filewoext), "pages/", "view/", 1)
+			node.Nodes = append(node.Nodes, n)
+		}
+	}
+	return node, nil
+}
+
+func GenerateSidebar(dir string) (*BS5TreeE, error) {
+	node := &BS5TreeE{Text: filepath.Base(dir)}
+	node.Icon = "fa fa-folder"
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		if file.IsDir() {
+			childNode, err := GenerateSidebar(filepath.Join(dir, file.Name()))
+			if err != nil {
+				return nil, err
+			}
+			node.Nodes = append(node.Nodes, childNode)
+		} else {
+			n := &BS5TreeE{Text: file.Name(), Icon: "fa fa-file-text-o"}
+			n.ID = "/" + strings.Replace(filepath.Join(dir, file.Name()), "files/", "dl/", 1)
+			n.Class = "binfiles list-group-item"
+			node.Nodes = append(node.Nodes, n)
+		}
+	}
+	return node, nil
+}
+
+func GenerateJsonNav() string {
+
+	p, _ := GenerateSidebarPages(config["pages"])
+	p.Expanded = true
+	a, _ := GenerateSidebar(config["files"])
+	menu := []BS5TreeE{*p, *a}
+
+	jsonA, _ := json.MarshalIndent(menu, "", "  ")
+
+	return string(jsonA)
 }
 
 func loadPage(title string) (*Page, error) {
@@ -75,9 +174,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, _ := listPages()
-	a, _ := listAttachments()
-	tr := TemplateRender{Pages: p, Attachments: a, Page: page, Content: content}
+	tr := TemplateRender{Title: page.Title, Page: page, Content: content, Sidebar: GenerateJsonNav()}
 
 	if err := t.ExecuteTemplate(w, "base", tr); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -102,9 +199,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, _ := listPages()
-	a, _ := listAttachments()
-	tr := TemplateRender{Pages: p, Attachments: a, Page: page, Content: content}
+	tr := TemplateRender{Title: page.Title, Page: page, Content: content, Sidebar: GenerateJsonNav()}
 
 	if err := t.ExecuteTemplate(w, "base", tr); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -118,9 +213,8 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		page = &Page{Title: title}
 	}
-	p, _ := listPages()
-	a, _ := listAttachments()
-	tr := TemplateRender{Pages: p, Attachments: a, Page: page, Content: string(page.Body)}
+
+	tr := TemplateRender{Title: page.Title, Page: page, Content: string(page.Body), Sidebar: GenerateJsonNav()}
 
 	t, err := template.ParseFS(tpls, "templates/base.html", "templates/edit.html")
 

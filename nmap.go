@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"text/template"
 
+	"github.com/glebarez/sqlite"
 	"github.com/gorilla/mux"
 	"github.com/tomsteele/go-nmap"
 	"gorm.io/datatypes"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -214,8 +214,9 @@ func NmapRouter() http.Handler {
 		for _, port := range host.Ports {
 			res = res + fmt.Sprintf("%d:\n", port.Port)
 			for _, script := range port.Scripts {
-				res = res + fmt.Sprintf("\t%s:\n\t\t%s", script.Title, script.Output)
+				res = res + fmt.Sprintf("\t%s:\n\t\t%s\n", script.Title, script.Output)
 			}
+			res = res + "---------------------------\n"
 		}
 		w.Write([]byte(res))
 
@@ -235,12 +236,33 @@ func NmapRouter() http.Handler {
 
 	}).Methods("GET")
 
-	// Route for dumping all ORM info
-	nmapRouter.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// Code to handle ORM dump
-	}).Methods("GET").Methods("POST")
+	nmapRouter.HandleFunc("/ips", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-encoding", "utf-8")
+		var hosts []string
+		db.Raw("select hosts.IP from hosts").Find(&hosts)
+		res := ""
+		for _, host := range hosts {
+			res = res + fmt.Sprintf("%s\n", host)
+		}
+		w.Write([]byte(res))
+	}).Methods("GET")
+
 	return nmapRouter
 }
+
+func GenerateSidebarNmap(ips []string) string {
+	var toJson []*BS5TreeE
+	for _, ip := range ips {
+		n := &BS5TreeE{Text: ip, Icon: "fa fa-file-text-o", Class: "ipaddr", ID: ip}
+		toJson = append(toJson, n)
+	}
+
+	jsonA, _ := json.MarshalIndent(toJson, "", "  ")
+
+	return string(jsonA)
+}
+
 func NmapHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[%s] NMAP VIEW [%s]: %s \n", r.RemoteAddr, r.Method, r.URL)
@@ -249,20 +271,24 @@ func NmapHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("unable to connect database %v", err)
 	}
-	t, err := template.ParseFS(tpls, "templates/nmap.html")
+	t, err := template.ParseFS(tpls, "templates/base.html", "templates/nmap.html")
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	var hosts []Host
 
 	db.Select("IP").Find(&hosts)
-	tr := TemplateRender{}
+
 	var ips []string
 	for _, host := range hosts {
 		ips = append(ips, host.IP)
 	}
-	tr.Data = ips
+
+	tr := TemplateRender{Title: "nmap", Sidebar: GenerateSidebarNmap(ips)}
+
 	if err := t.ExecuteTemplate(w, "base", tr); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

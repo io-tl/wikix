@@ -4,22 +4,6 @@
     <div id="markdown-content">
         <h1></h1>
         <pre>
-<b>upload bin :</b>
-curl --data-binary @/etc/passwd {{.Data}}/up/filename
-
-<b>download bin :</b>
-curl -v {{.Data}}/dl/filename
-
-<b>bash :</b>
-
-up() {
-    curl -L --data-binary @${1} {{.Data}}/up/$(echo ${1}|tr / _)
-}
-
-<b>webdav</b>
-
-dav://{{.Data}}/dav/pages
-dav://{{.Data}}/dav/files
 
 <b>create new page :</b>
 <a href="http://{{.Data}}/edit/newpage">newpage</a> http://{{.Data}}/edit/newpage
@@ -27,6 +11,17 @@ dav://{{.Data}}/dav/files
 <b>view raw attachment </b>
 
 {{.Data}}/dl/rawattachment
+            
+<b>upload bin :</b>
+curl --data-binary @/etc/passwd {{.Data}}/up/filename
+
+<b>download bin :</b>
+curl -v {{.Data}}/dl/filename
+
+<b>webdav</b>
+
+dav://{{.Data}}/dav/pages
+dav://{{.Data}}/dav/files
 
 <b>nmap</b>
 upload results
@@ -46,6 +41,31 @@ http://{{.Data}}/nmap/show/1.2.3.4/all
 
 get ips for port 22 
 http://{{.Data}}/nmap/ports/22
+
+get all ips
+http://{{.Data}}/nmap/ips
+
+
+
+<b>bash :</b>
+
+to get wi cli command on shell :
+<xmp>
+. <( {{.Data}}/rc )
+
+$ wi
+wi up <path>    # upload bin to wiki
+wi dl <name>    # dl file from wiki
+wi lsp          # list pages
+wi lsf          # list files
+wi upn <file>    # upload nmap xml scan
+wi upnf <file>   # upload nmap xml scan and force update
+wi port <port>  # get ip list for open <port> 
+wi ip <ip>      # get <ip> opened ports
+wi ipsum <ip>   # get <ip> detail
+wi ips          # list of ips 
+</xmp>
+
 
         </pre>
 

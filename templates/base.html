@@ -6,139 +6,129 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/css/font-awesome.min.css"/>
-    <link href="/fonts/fonts.css" rel="stylesheet">
-    <link href="/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/css/bootstrap-icons.min.css" rel="stylesheet">
-    <script src="/js/popper.min.js"></script>
+    <link rel="stylesheet" href="/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/css/bstreeview.min.css"/>
+<!--    <script src="/js/popper.min.js"></script> -->
+    <script src="/js/jquery-3.7.1.min.js"></script>
+    <script src="/js/jquery-ui.min.js"></script>
     <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/bstreeview.min.js"></script>
 
-    <title>Wiki</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            height: 100vh;
-        }
+    <title>{{.Title}}</title>
 
-        #sidebar {
-            height: 100vh;
-            border-right: 1px solid;
-        }
+<script>
+    function toggleFolder(icon) {
+      var folder = icon.parentElement;
+      var nestedList = folder.querySelector('ul');
+      if (nestedList) {
+        nestedList.style.display = nestedList.style.display === 'none' ? 'block' : 'none';
+        var iconClassList = icon.classList;
+        iconClassList.toggle('fa-folder-open');
+        iconClassList.toggle('fa-folder');
+      }
+    }
+    function getTree() {
+        var data = {{ .Sidebar }};
+        return data;
+    }
 
-        #editor {
-            height: 100vh;
-            width: 100%;
-            padding: 20px;
-        }
 
-        #main {
-            flex-grow: 1; 
-        }
-        li > a {
-            white-space: nowrap;
-        }
-        .collapsing {
-            transition: none !important;
-        }
+$(document).ready(function(){
+    $('#tree').bstreeview({ 
+        
+        data: getTree(),
+        openNodeLinkOnNewTab: false
+    });
+    $('.binfiles').on('click', function () {
+        window.open($(this).attr('id'), "_blank"); 
+    });
+    $('#searchForm').on('submit',function (e) {
+        e.preventDefault();
+        window.location.href = '/search/' + $("#searchInput").val();
+    });
+    $('#newForm').on('submit',function (e) {
+        e.preventDefault();
+        window.location.href = '/edit/' + $("#newDoc").val();
+    });
 
-    </style>
+});
 
+</script>
 </head>
 <body>
 
     <div class="container-fluid">
-        <div class="row flex-nowrap w-100">
-            <div class="col-auto  bg-dark overflow-auto" style="max-width: 40vh; max-height: 100vh; overflow-x:auto; ">
-                <div class="d-flex flex-column align-items-center align-items-sm-start px-3 pt-2 text-white min-vh-100">
-                    <a href="/" class="text-white text-decoration-none">
-                        <span class="fs-5 d-none d-sm-inline"><h1 class="display-2"><i class="bi bi-radioactive"></i></h1></span>
-                    </a>
-                    <ul class="nav nav-pills flex-column mb-sm-auto mb-0 align-items-center align-items-sm-start" id="menu">
-                        <li class="nav-item">
-                            <a href="#pages" data-bs-toggle="collapse" class="nav-link px-0 align-middle link-light gap-2">
-                                <i class="fs-4 bi bi-filetype-md"></i> <span class="ms-1 d-none d-sm-inline">Pages</span> 
-                            </a>
-                            <ul class="collapse show nav flex-column ms-1" id="pages" data-bs-parent="#menu">
-                                    {{range .Pages}}
-                                    <li name="" class="nav-item d-flex text-wrap ">
-                                        <a href="/view/{{.}}"  class="nav-link px-0 link-light d-flex gap-1 " >
-                                            <i class="bi bi-markdown"></i><span class="ms-1 d-none d-sm-inline">{{.}} </span>
-                                        </a>
-                                        <!-- <a href="/edit/{{.}}"  class="nav-link px-5 link-danger " ><i class="fa fa-edit"></i></a> -->
-                                    </li>
-                                    {{end}}
-                            </ul>
-                        </li>
+        <div class="row flex-nowrap">
+            <div class="col-auto col-lg-12">
+                <nav class="navbar navbar-dark navbar-expand-lg  bg-dark">
+                    <div class="container-fluid">
+                        <a class="navbar-brand " href="/">
+                            <img src="/css/img.png" alt="" width="30" height="24" class="d-inline-block">
+                            WiKiX
+                        </a>    
+                        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                            </button>
+                        <div class="collapse navbar-collapse " id="navbarText">
+                            <ul class="navbar-nav ms-auto">                            
 
-                        <li class="nav-item">
-                            <a href="#files" data-bs-toggle="collapse" class="nav-link px-0 align-middle link-light gap-2 ">
-                                <i class="fs-4 bi-file-earmark-binary"></i> <span class="ms-1 d-none d-sm-inline">Files</span> 
-                            </a>
-                            <ul class="collapse nav flex-column ms-1" id="files" data-bs-parent="#menu">
-                                {{range .Attachments}}
-                                <li class="nav-item text-wrap ">
-                                    <a href="/dl/{{.}}" target="_blank" class="nav-link px-0 link-success " ><span class="ms-1 d-none d-sm-inline text-wrap"><i class="bi bi-file-binary-fill"></i>&nbsp;{{.}} </span></a>
+                                <li class="d-flex align-items-center">
+                                    <i class="text-white fa fa-files-o"></i>
+                                    <a class="nav-link active " href="/dav" target="_blank">WebDAV</a>
                                 </li>
-                                {{end}}
+                                <li class="d-flex align-items-center">
+                                    <i class="text-white fa fa-floppy-o"></i>
+                                    <a class="nav-link active " href="/backup">Backup</a>
+                                </li>
+                                <li class="d-flex align-items-center">
+                                    <i class="text-white fa fa-terminal"></i>
+                                    <a class="nav-link active " href="/rc" target="_blank">Bash</a>
+                                </li>
+                                <li class="d-flex align-items-center">
+                                    <i class="text-white fa fa-code"></i>
+                                    <a class="nav-link  active " href="/doc">Doc</a>
+                                </li>
+                                <li class="d-flex align-items-center">
+                                    <i class="text-white fa fa-sitemap"></i>
+                                    <a class="nav-link active " href="/nmap">Nmap</a>
+                                </li>
+                                <li>
+                                    <form id="searchForm" class="d-flex" role="search">
+                                        <div class="input-group">
+                                            <span class="input-group-text" id="basic-search"><i class="fa fa-search"></i></span>
+                                            <input class="form-control" type="text" id="searchInput" placeholder="Search" autocomplete="off">
+                                        </div>
+                                    </form>    
+                                </li>
+                                <li>
+                                    <form id="newForm" class="d-flex" role="search">
+                                        <div class="input-group">
+                                            <span class="input-group-text" id="basic-search"><i class="fa fa-pencil"></i></span>
+                                            <input id="newDoc" class="form-control" type="text" placeholder="New Page" autocomplete="off">
+                                        </div>
+                                    </form>    
+                                </li>
                             </ul>
-                        </li>
-                    </ul>
-                    <hr>
-
-                 
-                    <div class="dropdown pb-4">
-                        <a href="#" class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" id="dropdownUser1" data-bs-toggle="dropdown" aria-expanded="false">
-                            <img src="/fonts/img.png" alt="hugenerd" width="30" height="30" class="rounded-circle">
-                            <span class="d-none d-sm-inline mx-1">wikix</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
-                            <ul class="nav">
-                                <div class="input-group mb-1">
-                                    <form id="searchForm" class="nav-item d-flex gap-1">
-                                        <i class="fs-6 bi-search"></i>
-                                        <input class="form-control form-control-sm" type="text" id="searchInput" placeholder="Search" autocomplete="off">
-                                    </form>
-                                    <script>
-                                        document.getElementById('searchForm').addEventListener('submit', function(event) {
-                                            event.preventDefault();
-                                            var query = document.getElementById('searchInput').value;
-                                            window.location.href = '/search/' + encodeURIComponent(query);
-                                        });
-                                    </script>
-                                </div>
-                            </ul>
-                            <ul class="nav">
-                                <div class="input-group mb-1">
-                                    <form id="newForm" class="nav-item d-flex gap-1">
-                                        <i class="fs-6 bi-file-earmark-plus-fill"></i>
-                                        <input class="form-control form-control-sm" type="text" id="newDoc" placeholder="New/Edit Page" autocomplete="off">
-                                    </form>
-                                    <script>
-                                        document.getElementById('newForm').addEventListener('submit', function(event) {
-                                            event.preventDefault();
-                                            var query = document.getElementById('newDoc').value;
-                                            window.location.href = '/edit/' + encodeURIComponent(query);
-                                        });
-                                    </script>
-                                </div>
-                            </ul>
-                            <li><a class="dropdown-item" href="/nmap">nmap</a></li>
-                            <li><a class="dropdown-item" href="/info">browser info</a></li>
-                            <li><a class="dropdown-item" href="/doc">documentation</a></li>
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li><a class="dropdown-item" href="/backup" target="_blank" >backup</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <div name="main" class="col py-3">
-                {{ template "main" . }}
+                        </div>      
+                    </div>        
+                </nav>    
             </div>
         </div>
+        <div class="row flex-nowrap">
+            <div class="col-auto ml-2">
+                <div id="tree">
+
+                </div>
+            </div>
+            <main class="col ps-md-2 pt-2">
+                <div class="row">
+                    <div name ="main" class="col-12">
+                        {{ template "main" . }}
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
-    
 </body>
 </html>
 {{end}}

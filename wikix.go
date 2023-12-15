@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"regexp"
 
 	"net/http"
 	"os"
@@ -25,42 +26,20 @@ type Search struct {
 }
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path[len("/dl/"):]
+	path := filepath.Clean(r.URL.Path[len("/dl/"):])
 	log.Printf("[%s] DOWNLOAD [%s]: %s \n", r.RemoteAddr, r.Method, r.URL)
 	http.ServeFile(w, r, config["files"]+path)
 }
 
-func listAttachments() ([]string, error) {
-	var fileList []string
-
-	files, err := os.ReadDir(config["files"])
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if !file.IsDir() {
-			fileList = append(fileList, file.Name())
+func analyzeUP(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/up") || strings.HasPrefix(r.URL.Path, "/dl") {
+			re := regexp.MustCompile(`/{2,}`)
+			r.URL.RawPath = re.ReplaceAllString(r.URL.RawPath, "/")
+			r.URL.Path = re.ReplaceAllString(r.URL.Path, "/")
 		}
-
-	}
-	return fileList, nil
-}
-
-func listPages() ([]string, error) {
-	var fileList []string
-
-	files, err := os.ReadDir(config["pages"])
-	if err != nil {
-		return nil, err
-	}
-	for _, file := range files {
-		if !file.IsDir() {
-			ext := filepath.Ext(file.Name())
-			fileNameWithoutExt := file.Name()[0 : len(file.Name())-len(ext)]
-			fileList = append(fileList, fileNameWithoutExt)
-		}
-	}
-	return fileList, nil
+		next.ServeHTTP(w, r)
+	})
 }
 
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -78,14 +57,15 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name := r.URL.Path[len("/dl/"):]
+	name := filepath.Clean(r.URL.Path[len("/dl/"):])
+
 	p := &Attachment{Filename: name, Content: content}
 	err = p.save()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	resp := "upload " + p.Filename + " ok\n"
+	resp := "UPLOAD " + p.Filename + " OK\n"
 	w.Write([]byte(resp))
 }
 
@@ -117,10 +97,35 @@ func getIp() *string {
 	return &res
 }
 
+func listAll(dir string) ([]string, error) {
+	var fileList []string
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		parts := strings.Split(filepath.Clean(path), string(filepath.Separator))
+
+		if len(parts) >= 2 && !info.IsDir() {
+			path = filepath.Join(parts[1:]...)
+			fileList = append(fileList, path)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return fileList, nil
+}
+
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	query := strings.ToLower(mux.Vars(r)["query"])
 
-	files, err := os.ReadDir(config["pages"])
+	files, err := listAll(config["pages"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -128,10 +133,8 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	var results []Search
 	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		content, err := os.ReadFile(config["pages"] + file.Name())
+
+		content, err := os.ReadFile(config["pages"] + file)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -142,15 +145,12 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 			start := max(0, index-50)
 			end := min(len(lowerContent), index+len(query)+50)
 			preview := lowerContent[start:end]
-			ext := filepath.Ext(file.Name())
-			fileNameWithoutExt := file.Name()[0 : len(file.Name())-len(ext)]
+			ext := filepath.Ext(file)
+			fileNameWithoutExt := file[0 : len(file)-len(ext)]
 			results = append(results, Search{Page: fileNameWithoutExt, Preview: preview, Pattern: query})
 		}
 	}
-
-	p, _ := listPages()
-	a, _ := listAttachments()
-	tr := TemplateRender{Pages: p, Attachments: a, Data: results, Content: query}
+	tr := TemplateRender{Title: fmt.Sprintf("search %s", query), Data: results, Content: query, Sidebar: GenerateJsonNav()}
 
 	t, err := template.ParseFS(tpls, "templates/base.html", "templates/search.html")
 	if err != nil {
@@ -180,14 +180,11 @@ func makeAddr(ip *string, port string) string {
 
 func docHandler(w http.ResponseWriter, r *http.Request) {
 
-	p, _ := listPages()
-	a, _ := listAttachments()
-
 	t, err := template.ParseFS(tpls, "templates/base.html", "templates/doc.html")
 
 	addr := makeAddr(getIp(), config["port"])
 
-	tr := TemplateRender{Pages: p, Attachments: a, Data: addr}
+	tr := TemplateRender{Title: "Doc", Data: addr, Sidebar: GenerateJsonNav()}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -196,6 +193,38 @@ func docHandler(w http.ResponseWriter, r *http.Request) {
 	if err := t.ExecuteTemplate(w, "base", tr); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func rcHandler(w http.ResponseWriter, r *http.Request) {
+
+	addr := makeAddr(getIp(), config["port"])
+
+	tr := TemplateRender{Data: addr}
+
+	t, err := template.ParseFS(tpls, "templates/rc.txt")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := t.ExecuteTemplate(w, "base", tr); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+func listHandler(w http.ResponseWriter, r *http.Request) {
+	item := mux.Vars(r)["item"]
+	if item == "pages" {
+		p, _ := listAll(config["pages"])
+		w.Write([]byte(strings.Join(p, "\n") + "\n"))
+		return
+	}
+
+	if item == "files" {
+		a, _ := listAll(config["files"])
+		w.Write([]byte(strings.Join(a, "\n") + "\n"))
+		return
+	}
+	w.Write([]byte(""))
 }
 
 func deleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -249,7 +278,7 @@ func BasicAuthHandler(next http.Handler) http.Handler {
 
 func main() {
 
-	listen := flag.String("listen", ":8800", "listen addr ")
+	listen := flag.String("listen", ":8888", "listen addr ")
 	auth := flag.String("auth", "", "user:pass")
 	flag.Parse()
 	if *auth != "" {
@@ -275,16 +304,18 @@ func main() {
 	router.HandleFunc("/", indexHandler)
 	router.HandleFunc("/doc", docHandler)
 	router.HandleFunc("/info", infoHandler)
+	router.HandleFunc("/rc", rcHandler)
+	router.HandleFunc("/ls/{item}", listHandler)
 
-	router.HandleFunc("/view/{page}", viewHandler)
-	router.HandleFunc("/edit/{page}", editHandler)
-	router.HandleFunc("/save/{page}", saveHandler)
-	router.HandleFunc("/del/{page}", deleteHandler)
+	router.HandleFunc("/view/{page:.*}", viewHandler)
+	router.HandleFunc("/edit/{page:.*}", editHandler)
+	router.HandleFunc("/save/{page:.*}", saveHandler)
+	router.HandleFunc("/del/{page:.*}", deleteHandler)
 
 	router.HandleFunc("/search/{query}", searchHandler)
 
-	router.HandleFunc("/dl/{file}", downloadHandler)
-	router.HandleFunc("/up/{file}", uploadHandler)
+	router.HandleFunc("/dl/{file:.*}", downloadHandler)
+	router.HandleFunc("/up/{file:.*}", uploadHandler)
 	router.HandleFunc("/backup", BackupHandler)
 
 	router.PathPrefix("/fonts/").Handler(http.StripPrefix("/fonts", hs))
@@ -297,7 +328,7 @@ func main() {
 
 	log.Printf("started on %s", config["port"])
 
-	err := http.ListenAndServe(config["port"], router)
+	err := http.ListenAndServe(config["port"], analyzeUP(router))
 	if err != nil {
 		log.Printf("ERROR  %v", err)
 	}

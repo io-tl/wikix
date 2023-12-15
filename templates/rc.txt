@@ -1,0 +1,107 @@
+{{define "base"}}
+
+# . <(curl -s {{.Data}}/rc)
+
+WIKIX={{.Data}}
+
+function wi_help() {
+    echo "wi up <path>    # upload bin to wiki"
+    echo "wi dl <name>    # dl file from wiki"
+    echo "wi lsp          # list pages"
+    echo "wi lsf          # list files"
+    echo "wi upn <file>   # upload nmap xml scan"
+    echo "wi upnf <file>  # upload nmap xml scan and force update"
+    echo "wi port <port>  # get ip list for open <port> "
+    echo "wi ip <ip>      # get <ip> opened ports" 
+    echo "wi ipsum <ip>   # get <ip> detail" 
+    echo "wi ips          # list of ips "
+}
+
+function wi() {
+    if (( $# )); then
+      case $1 in 
+        up)
+        if [ ! -z "${2}" ]; then
+            if [ -f "${2}" ]; then
+                curl -v -L -s --data-binary @${2} ${WIKIX}/up/${2}
+            else
+                echo "${2} not found"
+                return 
+            fi
+        else
+            echo "wi up <path>"
+        fi
+        ;;
+        dl)
+        if [ ! -z "${2}" ]; then
+            curl -O --progress-bar ${WIKIX}/dl/${2}
+        else
+            echo "wi dl <file>"
+        fi
+        ;;
+        lsp)
+            curl -s ${WIKIX}/ls/pages
+        ;;
+        lsf)
+            curl -s ${WIKIX}/ls/files
+        ;;
+        upn)
+        if [ ! -z "${2}" ]; then
+            if [ -f "${2}" ]; then
+                curl -L -s --data-binary @${2} ${WIKIX}/nmap/up
+            else
+                echo "${2} not found"
+                return 
+            fi
+        else
+            echo "wi upn <path>"
+        fi
+        ;;
+        upnf)
+        if [ ! -z "${2}" ]; then
+            if [ -f "${2}" ]; then
+                curl -L -s --data-binary @${2} ${WIKIX}/nmap/up?force=1
+            else
+                echo "${2} not found"
+                return 
+            fi
+        else
+            echo "wi upnf <path>"
+        fi
+        ;;
+        port)
+        if [ ! -z "${2}" ]; then
+            curl -s ${WIKIX}/nmap/ports/${2}
+        else
+            echo "wi port <port>"
+        fi
+        ;;
+        ip)
+        if [ ! -z "${2}" ]; then
+            curl -s ${WIKIX}/nmap/show/${2}
+        else
+            echo "wi ip <ip>"
+        fi
+        ;;
+        ipsum)
+        if [ ! -z "${2}" ]; then
+            curl -s ${WIKIX}/nmap/show/${2}/sum
+        else
+            echo "wi ipsum <ip>"
+        fi
+        ;;
+        ips)
+            curl -s ${WIKIX}/nmap/ips
+        ;;
+        *)
+        wi_help
+        ;;
+      esac
+    else
+      wi_help
+    fi
+}
+
+
+
+{{end}}
